@@ -19,4 +19,6 @@ NEXUS_USER=
 NEXUS_PASS=
 #NEXUS_STRICT_SSL=false
 #NEXUS_DOCKER_REPOSITORY=docker-repo-name
+#NEXUS_MAVEN_REPOSITORY=maven-repo-name
+#NEXUS_NPM_REPOSITORY=npm-repo-name
 ```

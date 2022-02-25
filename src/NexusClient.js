@@ -81,11 +81,21 @@ class NexusClient {
       return rows;
     };
 
-    stream.transform = (transformer) => {
-      const rs = this._resultSet({
-        transform: (row, enc, next) => next(null, transformer(row)),
+    stream.map = (mapper) => {
+      return stream.transform({
+        transform: (row, enc, next) => next(null, mapper(row)),
       });
-      return stream.on("error", (err) => rs.on("error", err)).pipe(rs);
+    };
+
+    stream.filter = (filter) => {
+      return stream.transform({
+        transform: (row, enc, next) => (filter(row) ? next(null, row) : next()),
+      });
+    };
+
+    stream.transform = (opts) => {
+      const rs = this._resultSet(opts);
+      return stream.on("error", (err) => rs.emit("error", err)).pipe(rs);
     };
 
     return stream;
