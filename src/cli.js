@@ -33,7 +33,7 @@ yargs
     aliases: ["repos"],
     describe: "List repositories",
     handler: async () => {
-      _(await nexus.listRepositories())
+      _(await nexus.listRepositories().rows())
         .groupBy("format")
         .forEach((items, format) => {
           console.log(format);
@@ -50,8 +50,7 @@ yargs
     command: "components <repository>",
     describe: "List components of a repository",
     handler: async (argv) => {
-      const items = await nexus.listComponents(argv.repository);
-      items.forEach((it) => {
+      nexus.listComponents(argv.repository).on("data", (it) => {
         console.log(`${it.name} group=${it.group} version=${it.version}`);
       });
     },
@@ -60,10 +59,9 @@ yargs
     command: "component <repository> <name>",
     describe: "List component versions",
     handler: async (argv) => {
-      const items = await nexus.search({
-        repository: argv.repository,
-        name: argv.name,
-      });
+      const items = await nexus
+        .search({ repository: argv.repository, name: argv.name })
+        .rows();
       _(items)
         .sortBy([(it) => sortableSemver(it.version), "version"])
         .forEach((it) => {
@@ -87,18 +85,13 @@ yargs
         }
       });
 
-      console.log({
-        ...args,
-        q: query.join(" "),
-      });
-
-      const items = await nexus.search({
-        ...args,
-        q: query.join(" "),
-      });
-      items.forEach((it) => {
-        console.log(`${it.name} group=${it.group} version=${it.version}`);
-      });
+      nexus
+        .search({ ...args, q: query.join(" ") })
+        .on("data", (it) =>
+          console.log(
+            `${it.name} repository=${it.repository} group=${it.group} version=${it.version}`
+          )
+        );
     },
   })
   .command({
@@ -111,11 +104,10 @@ yargs
         type: "string",
       }),
     handler: async (argv) => {
-      const items = await nexus.search({
-        repository: argv.repository || process.env.NEXUS_DOCKER_REPOSITORY,
-        version: "latest",
-      });
-      items.forEach((it) => console.log(it.name));
+      const repository = argv.repository || process.env.NEXUS_DOCKER_REPOSITORY;
+      nexus
+        .search({ repository, version: "latest" })
+        .on("data", (it) => console.log(it.name));
     },
   })
   .command({
@@ -128,10 +120,12 @@ yargs
         type: "string",
       }),
     handler: async (argv) => {
-      const items = await nexus.search({
-        repository: argv.repository || process.env.NEXUS_DOCKER_REPOSITORY,
-        "docker.imageName": argv.image,
-      });
+      const items = await nexus
+        .search({
+          repository: argv.repository || process.env.NEXUS_DOCKER_REPOSITORY,
+          "docker.imageName": argv.image,
+        })
+        .rows();
 
       // Known tags with the least weigth, to always print them as extra tags
       const leastWeight = ["latest", "master", "release-next"];
