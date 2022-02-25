@@ -1,0 +1,21 @@
+{
+  "name": "nexus-cli",
+  "version": "0.1.0",
+  "description": "Nexus Repository Manager CLI",
+  "bin": {
+    "nexus": "src/cli.js"
+  },
+  "scripts": {
+    "lint": "prettier --write \"**/*.js\""
+  },
+  "dependencies": {
+    "axios": "^0.21.4",
+    "dotenv": "^10.0.0",
+    "lodash": "^4.17.21",
+    "yargs": "^17.1.1"
+  },
+  "devDependencies": {
+    "debug": "^4.3.3",
+    "prettier": "^2.4.0"
+  }
+}
