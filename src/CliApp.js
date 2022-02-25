@@ -27,16 +27,18 @@ class CliApp {
         [`$0 repos`],
         [`$0 component REPOSITORY NAME`],
 
-        [`$0 npm packages`],
-        [`$0 npm package NAME`],
+        [`$0 npm list`],
+        [`$0 npm get NAME`],
+        [`$0 npm get @ORG/NAME`],
 
-        [`$0 docker images`],
-        [`$0 docker image NAME`],
+        [`$0 docker list`],
+        [`$0 docker get NAME`],
 
         [`$0 maven groups`],
-        [`$0 maven artifacts`],
-        [`$0 maven artifacts GROUP`],
-        [`$0 maven artifact NAME`],
+        [`$0 maven list`],
+        [`$0 maven list --group=GROUP`],
+        [`$0 maven get --group=GROUP`],
+        [`$0 maven get GROUP:NAME`],
       ]);
   }
 

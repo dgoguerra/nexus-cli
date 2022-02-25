@@ -1,5 +1,16 @@
+const { Fzf } = require("@dgoguerra/fzf");
 const { app } = require("../CliApp");
 const { sortByVersion, groupByVersion } = require("../utils/versions");
+
+function listArtifacts(argv) {
+  return app.nexus
+    .search({
+      repository: argv.repository,
+      "maven.groupId": argv.group || undefined,
+    })
+    .map((it) => `${it.group}:${it.name}`)
+    .unique();
+}
 
 module.exports = {
   command: "maven <action>",
@@ -16,36 +27,28 @@ module.exports = {
         command: "groups",
         description: "List maven artifact groups",
         handler: async (argv) => {
-          const seen = {};
-          app.nexus.search({ repository: argv.repository }).on("data", (it) => {
-            if (!seen[it.group]) {
-              console.log(it.group);
-              seen[it.group] = true;
-            }
-          });
-        },
-      })
-      .command({
-        command: "artifacts [group]",
-        description: "List maven artifacts",
-        handler: async (argv) => {
-          const seen = {};
           app.nexus
-            .search({
-              repository: argv.repository,
-              "maven.groupId": argv.group || undefined,
-            })
-            .on("data", (it) => {
-              const key = `${it.name}:${it.group}`;
-              if (!seen[key]) {
-                console.log(`${it.name} group=${it.group}`);
-                seen[key] = true;
-              }
-            });
+            .search({ repository: argv.repository })
+            .unique((it) => it.group)
+            .on("data", (it) => console.log(it.group));
         },
       })
       .command({
-        command: "artifact <name>",
+        command: "list",
+        aliases: ["ls"],
+        description: "List maven artifacts",
+        builder: (yargs) =>
+          yargs.option("group", {
+            alias: "g",
+            description: "Artifact groupId",
+            type: "string",
+          }),
+        handler: async (argv) => {
+          listArtifacts(argv).on("data", (it) => console.log(it));
+        },
+      })
+      .command({
+        command: "get [name]",
         describe: "List maven artifact versions",
         builder: (yargs) =>
           yargs.option("group", {
@@ -54,20 +57,26 @@ module.exports = {
             type: "string",
           }),
         handler: async (argv) => {
+          if (!argv.name) {
+            argv.name = await new Fzf().run(
+              listArtifacts(argv).map((it) => `${it}\n`)
+            );
+          }
+          const [groupId, artifactId] = argv.name.split(":");
           app.nexus
             .search({
               repository: argv.repository,
-              "maven.artifactId": argv.name,
-              "maven.groupId": argv.group || undefined,
+              "maven.artifactId": artifactId,
+              "maven.groupId": groupId,
             })
             // TODO maven.artifactId seems to not be an equality filter,
             // the Search endpoint is also returning similar artifacts.
-            .filter((it) => it.name === argv.name)
+            .filter((it) => it.name === artifactId)
             .transform(sortByVersion())
             .transform(groupByVersion())
             .on("data", (it) =>
               console.log(
-                `${it.name} group=${it.group} version=${it.version}` +
+                `${it.group}:${it.name}:${it.version}` +
                   (it._versionsStr ? ` (${it._versionsStr})` : ``)
               )
             );

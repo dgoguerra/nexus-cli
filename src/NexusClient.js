@@ -27,35 +27,36 @@ class NexusClient {
   }
 
   _stream(url, params = {}) {
-    const rs = this._resultSet();
-
     debug({ url, params });
-    this.client.get(url, { params }).then((res) => {
-      res.data.forEach((it) => rs.push(it));
-      rs.push(null);
+
+    const rs = this._resultSet({
+      read: async () => {
+        const { data } = await this.client.get(url, { params });
+        data.forEach((it) => rs.push(it));
+        rs.push(null);
+      },
     });
 
     return rs;
   }
 
   _streamPages(url, params = {}) {
-    const rs = this._resultSet();
+    const rs = this._resultSet({ read: () => getNextPage() });
+    const nextParams = { ...params };
 
-    const getNextPage = async (url, params) => {
-      const { data } = await this.client.get(url, { params });
+    const getNextPage = async () => {
+      const { data } = await this.client.get(url, { params: nextParams });
       data.items.forEach((it) => rs.push(it));
+      nextParams.continuationToken = data.continuationToken || undefined;
       if (data.continuationToken) {
-        getNextPage(url, {
-          ...params,
-          continuationToken: data.continuationToken,
-        });
+        nextParams.continuationToken = data.continuationToken;
       } else {
+        nextParams.continuationToken = undefined;
         rs.push(null);
       }
     };
 
     debug({ url, params });
-    getNextPage(url, params);
 
     return rs;
   }
@@ -79,6 +80,16 @@ class NexusClient {
       stream.on("data", (data) => rows.push(data));
       await stream.wait();
       return rows;
+    };
+
+    stream.unique = (key = (row) => row) => {
+      const seenKeys = {};
+      return stream.filter((row) => {
+        const k = key(row);
+        const firstTime = !seenKeys[k];
+        seenKeys[k] = true;
+        return firstTime;
+      });
     };
 
     stream.map = (mapper) => {

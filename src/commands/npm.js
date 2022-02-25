@@ -1,5 +1,13 @@
+const { Fzf } = require("@dgoguerra/fzf");
 const { app } = require("../CliApp");
 const { sortByVersion, groupByVersion } = require("../utils/versions");
+
+function listPackages(argv) {
+  return app.nexus
+    .search({ repository: argv.repository })
+    .map((it) => (it.group ? `@${it.group}/${it.name}` : it.name))
+    .unique();
+}
 
 module.exports = {
   command: "npm <action>",
@@ -13,30 +21,37 @@ module.exports = {
         default: process.env.NEXUS_NPM_REPOSITORY,
       })
       .command({
-        command: "packages",
+        command: "list",
+        aliases: ["ls"],
         description: "List npm packages",
         handler: async (argv) => {
-          const seen = {};
-          app.nexus.search({ repository: argv.repository }).on("data", (it) => {
-            const key = `${it.name}:${it.group}`;
-            if (!seen[key]) {
-              console.log(it.name);
-              seen[key] = true;
-            }
-          });
+          listPackages(argv).on("data", (it) => console.log(it));
         },
       })
       .command({
-        command: "package <name>",
+        command: "get [name]",
         describe: "List npm package versions",
         handler: async (argv) => {
+          if (!argv.name) {
+            argv.name = await new Fzf().run(
+              listPackages(argv).map((it) => `${it}\n`)
+            );
+          }
+
+          const [, group, name] = argv.name.match(/^@(.+)\/(.+)$/) || [
+            undefined,
+            undefined,
+            argv.name,
+          ];
+
           app.nexus
-            .search({ repository: argv.repository, name: argv.name })
+            .search({ repository: argv.repository, name, group })
             .transform(sortByVersion())
             .transform(groupByVersion())
             .on("data", (it) =>
               console.log(
-                `${it.name}@${it.version}` +
+                (it.group ? `@${it.group}/` : ``) +
+                  `${it.name}:${it.version}` +
                   (it._versionsStr ? ` (${it._versionsStr})` : ``)
               )
             );
